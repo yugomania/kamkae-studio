@@ -87,7 +87,7 @@ app.post('/api/execute', async (req, res) => {
     animationStyle = 'Cinematic Dark Fantasy',
     voice = 'af_heart',
     aspectRatio = '16:9',
-    mode = 'kaggle' // 'kaggle' or 'direct'
+    mode = req.body.mode || req.body.runner || 'kaggle' // 'kaggle' or 'direct'
   } = req.body;
 
   if (!script || !script.trim()) {
