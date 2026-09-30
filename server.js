@@ -157,15 +157,42 @@ function launchKaggleKernel(executionId, workDir, jobConfig) {
   const kaggleDir = path.join(workDir, 'kaggle_run');
   fs.mkdirSync(kaggleDir, { recursive: true });
 
-  // Copy worker script and config into folder
+  const cleanId = executionId.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const kernelSlug = `kamkae-video-${cleanId}`.substring(0, 45);
+  const kernelTitle = `Kamkae Video ${cleanId}`.substring(0, 45);
+
+  // Read worker script and inject configuration and secrets for cloud execution
   const workerSrc = path.join(__dirname, 'kaggle_pipeline', 'worker.py');
-  fs.copyFileSync(workerSrc, path.join(kaggleDir, 'worker.py'));
+  const baseCode = fs.readFileSync(workerSrc, 'utf8');
+
+  const kaggleHeader = `
+# AUTO-INJECTED CONFIGURATION FOR KAGGLE T4 CONTAINER
+import os, sys, subprocess
+
+# Ensure essential dependencies in Kaggle environment
+for _pkg in ["huggingface_hub", "soundfile", "edge-tts"]:
+    try:
+        __import__(_pkg)
+    except ImportError:
+        subprocess.run([sys.executable, "-m", "pip", "install", "-q", _pkg])
+
+# Inject Job Configuration
+EMBEDDED_CONFIG = ${JSON.stringify(jobConfig)};
+
+# Inject API Secrets into cloud runtime
+os.environ["HF_TOKEN"] = ${JSON.stringify(process.env.HF_TOKEN || '')};
+os.environ["HF_USERNAME"] = ${JSON.stringify(process.env.HF_USERNAME || 'yugomania')};
+os.environ["NVIDIA_API_KEY"] = ${JSON.stringify(process.env.NVIDIA_API_KEY || '')};
+os.environ["KIE_API_KEY"] = ${JSON.stringify(process.env.KIE_API_KEY || '')};
+`;
+
+  fs.writeFileSync(path.join(kaggleDir, 'worker.py'), kaggleHeader + '\n' + baseCode);
   fs.writeFileSync(path.join(kaggleDir, 'job_config.json'), JSON.stringify(jobConfig, null, 2));
 
   // Write kernel metadata targeting T4 GPU
   const kernelMeta = {
-    id: `${process.env.KAGGLE_USERNAME || 'ugochukwuodagu'}/kamkae-video-${executionId.toLowerCase().replace(/_/g, '-')}`,
-    title: `Kamkae Video ${executionId}`,
+    id: `${process.env.KAGGLE_USERNAME || 'ugochukwuodagu'}/${kernelSlug}`,
+    title: kernelTitle,
     code_file: 'worker.py',
     language: 'python',
     kernel_type: 'script',
@@ -211,12 +238,12 @@ function launchKaggleKernel(executionId, workDir, jobConfig) {
     state.progress = 15;
 
     // Monitor Kaggle kernel status
-    monitorKaggleExecution(executionId, kernelMeta.id);
+    monitorKaggleExecution(executionId, kernelMeta.id, workDir);
   });
 }
 
 // Monitor running Kaggle kernel
-function monitorKaggleExecution(executionId, kernelSlug) {
+function monitorKaggleExecution(executionId, kernelSlug, workDir) {
   const state = activeExecutions.get(executionId);
   if (!state) return;
 
@@ -239,15 +266,25 @@ function monitorKaggleExecution(executionId, kernelSlug) {
 
       if (statusText.includes('complete')) {
         clearInterval(interval);
-        state.phase = 'COMPLETED';
-        state.progress = 100;
-        state.status = 'completed';
-        state.message = 'Kaggle T4 GPU execution finished successfully!';
+        exec(`kaggle kernels output "${kernelSlug}" -p "${workDir}"`, { env }, () => {
+          const statusFile = path.join(workDir, 'status.json');
+          if (fs.existsSync(statusFile)) {
+            try {
+              const resData = JSON.parse(fs.readFileSync(statusFile, 'utf8'));
+              state.details = resData.details || state.details;
+            } catch (e) {}
+          }
+          state.phase = 'COMPLETED';
+          state.progress = 100;
+          state.status = 'completed';
+          state.message = 'Kaggle T4 GPU execution finished successfully!';
+        });
       } else if (statusText.includes('error') || statusText.includes('failed')) {
         clearInterval(interval);
         state.phase = 'FAILED';
         state.status = 'failed';
         state.message = `Kaggle kernel run failed: ${statusText}`;
+        exec(`kaggle kernels output "${kernelSlug}" -p "${workDir}"`, { env }, () => {});
       }
     });
   }, 10000);

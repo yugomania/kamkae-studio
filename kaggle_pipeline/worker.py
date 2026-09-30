@@ -400,7 +400,9 @@ def push_to_huggingface_dataset(video_path, execution_id, title):
 
 # Main Runner Pipeline
 def run_pipeline(config_path=None):
-    if config_path and os.path.exists(config_path):
+    if "EMBEDDED_CONFIG" in globals() and globals()["EMBEDDED_CONFIG"]:
+        cfg = globals()["EMBEDDED_CONFIG"]
+    elif config_path and os.path.exists(config_path):
         with open(config_path, "r") as f:
             cfg = json.load(f)
     else:
