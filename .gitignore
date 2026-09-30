@@ -44,3 +44,7 @@ temp/
 *.wav
 *.png
 *.jpg
+
+# Firebase
+firebase-debug.log*
+.firebase/

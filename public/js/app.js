@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnSignupSubmit = document.getElementById('btn-signup-submit');
 
   // State
+  const API_BASE = window.KAMKAE_API_BASE || localStorage.getItem('kamkae_api_base') || '';
   let currentStyle = 'Cinematic Dark Fantasy';
   let currentAspect = '16:9';
   let activeExecutionId = null;
@@ -189,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     stepperStatusText.textContent = 'Submitting Job...';
 
     try {
-      const response = await fetch('/api/execute', {
+      const response = await fetch(`${API_BASE}/api/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -229,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCancel.textContent = 'Cancelling...';
 
     try {
-      const res = await fetch(`/api/executions/${activeExecutionId}/cancel`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/executions/${activeExecutionId}/cancel`, { method: 'POST' });
       const data = await res.json();
       appendLog('Kaggle session and worker execution aborted.', 'warn');
       stepperStatusText.textContent = 'Cancelled by User';
@@ -255,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     statusPollInterval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/executions/${execId}/status`);
+        const res = await fetch(`${API_BASE}/api/executions/${execId}/status`);
         if (!res.ok) return;
 
         const data = await res.json();
@@ -294,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sentences = parseSentences(data.script || '');
     metaBadgeScenes.textContent = `${sentences.length} Scenes`;
 
-    const localVideoUrl = `/outputs/${data.execution_id}/final_video.mp4`;
+    const localVideoUrl = `${API_BASE}/outputs/${data.execution_id}/final_video.mp4`;
     const hfVideoUrl = data.details?.huggingface?.download_url;
 
     // Prefer local video URL for direct, fast, zero-CORS browser playback with full audio
@@ -316,15 +317,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (data.details && data.details.huggingface) {
       btnLinkHf.href = data.details.huggingface.view_url || '#';
-      btnDownloadMp4.href = data.details.huggingface.download_url || videoSrc;
+      btnDownloadMp4.href = data.details.huggingface.download_url || localVideoUrl;
       btnCopyLink.onclick = () => {
         navigator.clipboard.writeText(data.details.huggingface.download_url);
         alert('Direct Hugging Face video link copied to clipboard!');
       };
     } else {
-      btnDownloadMp4.href = videoSrc;
+      btnDownloadMp4.href = localVideoUrl;
       btnCopyLink.onclick = () => {
-        navigator.clipboard.writeText(window.location.origin + videoSrc);
+        navigator.clipboard.writeText(window.location.origin + localVideoUrl);
         alert('Video URL copied to clipboard!');
       };
     }
@@ -338,7 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 11. Video Library Loader
   async function loadLibrary() {
     try {
-      const res = await fetch('/api/executions');
+      const res = await fetch(`${API_BASE}/api/executions`);
       const data = await res.json();
       libraryGrid.innerHTML = '';
 
