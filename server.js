@@ -175,9 +175,9 @@ true = True
 false = False
 
 # Ensure essential dependencies in Kaggle environment
-for _pkg in ["huggingface_hub", "soundfile", "edge-tts"]:
+for _mod, _pkg in [("huggingface_hub", "huggingface_hub"), ("soundfile", "soundfile"), ("edge_tts", "edge-tts")]:
     try:
-        __import__(_pkg)
+        __import__(_mod)
     except ImportError:
         subprocess.run([sys.executable, "-m", "pip", "install", "-q", _pkg])
 

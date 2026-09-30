@@ -219,18 +219,40 @@ def generate_image_kie_ai(prompt, aspect_ratio="16:9", out_path="scene.png", max
 
         state = poll_data.get("data", {}).get("state")
         if state == "success":
-            result_list = poll_data.get("data", {}).get("result", [])
-            if not result_list:
-                # Check alternative result fields
-                result_url = poll_data.get("data", {}).get("imageUrl") or poll_data.get("data", {}).get("output")
-            else:
-                result_url = result_list[0] if isinstance(result_list, list) else result_list
+            data_obj = poll_data.get("data", {})
+            result_url = None
+            
+            # Check data.response.resultUrls
+            if "response" in data_obj and isinstance(data_obj["response"], dict):
+                urls = data_obj["response"].get("resultUrls") or data_obj["response"].get("result")
+                if urls and isinstance(urls, list) and len(urls) > 0:
+                    result_url = urls[0]
+
+            # Check data.resultJson.resultUrls
+            if not result_url and "resultJson" in data_obj:
+                try:
+                    rj = json.loads(data_obj["resultJson"])
+                    urls = rj.get("resultUrls") or rj.get("result")
+                    if urls and isinstance(urls, list) and len(urls) > 0:
+                        result_url = urls[0]
+                except Exception:
+                    pass
+
+            # Fallbacks
+            if not result_url:
+                result_list = data_obj.get("result", [])
+                if isinstance(result_list, list) and len(result_list) > 0:
+                    result_url = result_list[0]
+                else:
+                    result_url = data_obj.get("imageUrl") or data_obj.get("output")
                 
             if not result_url:
                 raise RuntimeError(f"No image URL returned from Kie.ai: {poll_data}")
 
-            # Download Image
-            urllib.request.urlretrieve(result_url, out_path)
+            # Download Image with User-Agent header
+            dl_req = urllib.request.Request(result_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(dl_req, timeout=30) as img_resp, open(out_path, "wb") as f_out:
+                f_out.write(img_resp.read())
             return out_path
         elif state == "fail":
             raise RuntimeError(f"Kie.ai image generation failed: {poll_data}")
@@ -264,27 +286,62 @@ def generate_voiceover(text, voice="af_heart", out_wav="voice.wav"):
     except Exception:
         pass
 
-    # High-quality fallback: edge-tts
+    # High-quality fallback: edge-tts native Python API
     try:
-        # Map Kokoro voice names to high quality neural voices
+        import asyncio
+        import edge_tts
         edge_voice = "en-US-ChristopherNeural" if "m" in voice else "en-US-JennyNeural"
-        cmd = ["edge-tts", "--voice", edge_voice, "--text", text, "--write-media", out_wav]
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        if res.returncode == 0 and os.path.exists(out_wav):
+        async def _synth():
+            communicate = edge_tts.Communicate(text, edge_voice)
+            await communicate.save(out_wav)
+        asyncio.run(_synth())
+        if os.path.exists(out_wav) and os.path.getsize(out_wav) > 0:
             return out_wav
     except Exception:
         pass
 
-    # Minimal fallback: eSpeak / ffmpeg synthetic tone if in isolated offline container
-    subprocess.run([
-        "ffmpeg", "-y", "-f", "lavfi", "-i", "sine=frequency=1000:duration=3",
-        "-c:a", "pcm_s16le", out_wav
-    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # Subprocess fallback: edge-tts CLI via python -m
+    try:
+        edge_voice = "en-US-ChristopherNeural" if "m" in voice else "en-US-JennyNeural"
+        cmd = [sys.executable, "-m", "edge_tts", "--voice", edge_voice, "--text", text, "--write-media", out_wav]
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode == 0 and os.path.exists(out_wav) and os.path.getsize(out_wav) > 0:
+            return out_wav
+    except Exception:
+        pass
+
+    # Pure Python wave fallback (zero dependencies, never crashes)
+    import wave, struct
+    sample_rate = 22050
+    duration = 3.0
+    num_samples = int(duration * sample_rate)
+    with wave.open(out_wav, 'wb') as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        for _ in range(num_samples):
+            wav_file.writeframes(struct.pack('<h', 0))
     return out_wav
 
 
 # Helper: Get audio duration
 def get_audio_duration(audio_path):
+    try:
+        import soundfile as sf
+        info = sf.info(str(audio_path))
+        return float(info.duration)
+    except Exception:
+        pass
+
+    try:
+        import wave
+        with wave.open(str(audio_path), 'rb') as wf:
+            frames = wf.getnframes()
+            rate = wf.getframerate()
+            return frames / float(rate)
+    except Exception:
+        pass
+
     cmd = [
         "ffprobe", "-v", "error", "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path)
@@ -294,6 +351,17 @@ def get_audio_duration(audio_path):
         return float(res.stdout.strip())
     except Exception:
         return 3.0
+
+
+# Helper to locate FFmpeg executable
+def get_ffmpeg_cmd():
+    if shutil.which("ffmpeg"):
+        return "ffmpeg"
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return "ffmpeg"
 
 
 # 5. Motion Video Clip per Sentence (FFmpeg Pan/Zoom Ken Burns)
@@ -320,8 +388,9 @@ def create_sentence_clip(image_path, audio_path, out_clip_path, aspect_ratio="16
         f"format=yuv420p"
     )
 
+    ffmpeg_bin = get_ffmpeg_cmd()
     cmd = [
-        "ffmpeg", "-y",
+        ffmpeg_bin, "-y",
         "-loop", "1",
         "-i", str(image_path),
         "-i", str(audio_path),
@@ -349,8 +418,9 @@ def concatenate_clips(clip_paths, out_final_path):
         for clip in clip_paths:
             f.write(f"file '{Path(clip).resolve()}'\n")
 
+    ffmpeg_bin = get_ffmpeg_cmd()
     cmd = [
-        "ffmpeg", "-y",
+        ffmpeg_bin, "-y",
         "-f", "concat",
         "-safe", "0",
         "-i", str(list_file),
