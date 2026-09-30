@@ -30,13 +30,30 @@ const activeExecutions = new Map();
 
 // Helper to get or load execution
 function getExecution(id) {
-  if (activeExecutions.has(id)) {
-    return activeExecutions.get(id);
-  }
   const statusFile = path.join(OUTPUTS_DIR, id, 'status.json');
-  if (fs.existsSync(statusFile)) {
+  const nestedStatus = path.join(OUTPUTS_DIR, id, 'outputs', id, 'status.json');
+  const sFile = fs.existsSync(statusFile) ? statusFile : (fs.existsSync(nestedStatus) ? nestedStatus : null);
+
+  if (activeExecutions.has(id)) {
+    const memState = activeExecutions.get(id);
+    if (sFile) {
+      try {
+        const fileData = JSON.parse(fs.readFileSync(sFile, 'utf8'));
+        if (fileData.status === 'completed' && memState.status !== 'completed') {
+          memState.status = 'completed';
+          memState.phase = 'COMPLETED';
+          memState.progress = 100;
+          memState.details = fileData.details || memState.details;
+          memState.message = fileData.message || memState.message;
+        }
+      } catch (e) {}
+    }
+    return memState;
+  }
+
+  if (sFile) {
     try {
-      const data = JSON.parse(fs.readFileSync(statusFile, 'utf8'));
+      const data = JSON.parse(fs.readFileSync(sFile, 'utf8'));
       activeExecutions.set(id, data);
       return data;
     } catch (e) {
@@ -269,9 +286,26 @@ function monitorKaggleExecution(executionId, kernelSlug, workDir) {
       const statusText = stdout.trim();
       state.logs.push({ timestamp: Date.now(), message: `Kaggle Status: ${statusText}` });
 
-      if (statusText.includes('complete')) {
+      const lower = statusText.toLowerCase();
+
+      if (lower.includes('complete')) {
         clearInterval(interval);
         exec(`kaggle kernels output "${kernelSlug}" -p "${workDir}"`, { env }, () => {
+          // If files downloaded to nested outputs/executionId, move/copy them up to workDir
+          const nestedDir = path.join(workDir, 'outputs', executionId);
+          if (fs.existsSync(nestedDir)) {
+            try {
+              const files = fs.readdirSync(nestedDir);
+              for (const f of files) {
+                const src = path.join(nestedDir, f);
+                const dst = path.join(workDir, f);
+                if (!fs.existsSync(dst)) {
+                  fs.copyFileSync(src, dst);
+                }
+              }
+            } catch (e) {}
+          }
+
           const statusFile = path.join(workDir, 'status.json');
           if (fs.existsSync(statusFile)) {
             try {
@@ -283,8 +317,9 @@ function monitorKaggleExecution(executionId, kernelSlug, workDir) {
           state.progress = 100;
           state.status = 'completed';
           state.message = 'Kaggle T4 GPU execution finished successfully!';
+          state.logs.push({ timestamp: Date.now(), message: 'Kaggle execution completed! Video generated & published.' });
         });
-      } else if (statusText.includes('error') || statusText.includes('failed')) {
+      } else if (lower.includes('error') || lower.includes('failed')) {
         clearInterval(interval);
         state.phase = 'FAILED';
         state.status = 'failed';
