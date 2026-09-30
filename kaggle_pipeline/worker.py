@@ -414,14 +414,14 @@ def get_ffmpeg_cmd():
 
 
 # 5. Motion Video Clip per Sentence (FFmpeg Pan/Zoom Ken Burns)
-def create_sentence_clip(image_path, audio_path, out_clip_path, aspect_ratio="16:9"):
+def create_sentence_clip(image_path, audio_path, out_clip_path, aspect_ratio="16:9", scene_index=0):
     """
     Creates a dynamic moving video clip for Sentence X by stitching Image X with Audio X
-    using subtle zoom/pan motion effect scaled to exact audio duration.
+    using noticeable, cinematic zoom/pan motion effects and studio-quality stereo audio.
     """
     duration = get_audio_duration(audio_path)
-    # Ensure a small padding so audio doesn't cut off abruptly
-    duration = max(duration + 0.3, 1.5)
+    # Ensure comfortable padding so speech is never clipped abruptly
+    duration = max(duration + 0.35, 2.0)
     fps = 25
     total_frames = int(duration * fps)
 
@@ -430,10 +430,30 @@ def create_sentence_clip(image_path, audio_path, out_clip_path, aspect_ratio="16
     else:
         width, height = 1920, 1080
 
-    # Ken Burns slow zoom effect
+    # Motion styles: alternating zoom in, zoom out, and smooth pans
+    motion_styles = ['zoom_in', 'zoom_out', 'pan_right', 'pan_left']
+    m_type = motion_styles[scene_index % len(motion_styles)]
+
+    if m_type == 'zoom_in':
+        z_expr = f"1.0+0.22*(on/{total_frames})"
+        x_expr = f"iw/2-(iw/zoom/2)+sin(on/{total_frames}*3.14159)*50"
+        y_expr = f"ih/2-(ih/zoom/2)"
+    elif m_type == 'zoom_out':
+        z_expr = f"1.22-0.22*(on/{total_frames})"
+        x_expr = f"iw/2-(iw/zoom/2)-sin(on/{total_frames}*3.14159)*50"
+        y_expr = f"ih/2-(ih/zoom/2)"
+    elif m_type == 'pan_right':
+        z_expr = f"1.16"
+        x_expr = f"(on/{total_frames})*(iw-iw/zoom)"
+        y_expr = f"ih/2-(ih/zoom/2)"
+    else: # pan_left
+        z_expr = f"1.16"
+        x_expr = f"(1.0-on/{total_frames})*(iw-iw/zoom)"
+        y_expr = f"ih/2-(ih/zoom/2)"
+
     vf = (
-        f"scale={width*2}:{height*2},"
-        f"zoompan=z='min(zoom+0.0012,1.25)':d={total_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps={fps},"
+        f"scale={int(width*1.3)}:{int(height*1.3)},"
+        f"zoompan=z='{z_expr}':d={total_frames}:x='{x_expr}':y='{y_expr}':s={width}x{height}:fps={fps},"
         f"format=yuv420p"
     )
 
@@ -449,6 +469,9 @@ def create_sentence_clip(image_path, audio_path, out_clip_path, aspect_ratio="16
         "-vf", vf,
         "-c:a", "aac",
         "-b:a", "192k",
+        "-ar", "44100",
+        "-ac", "2",
+        "-af", "volume=2.2,alimiter=limit=0.98",
         "-pix_fmt", "yuv420p",
         "-t", f"{duration:.2f}",
         str(out_clip_path)
@@ -460,7 +483,7 @@ def create_sentence_clip(image_path, audio_path, out_clip_path, aspect_ratio="16
 # 6. Sequential Assembly
 def concatenate_clips(clip_paths, out_final_path):
     """
-    Sequentially concatenates: vid a + vid b = final video
+    Sequentially concatenates: vid a + vid b = final video with seamless audio/video sync
     """
     list_file = Path(out_final_path).parent / "clips_concat.txt"
     with open(list_file, "w") as f:
@@ -473,7 +496,12 @@ def concatenate_clips(clip_paths, out_final_path):
         "-f", "concat",
         "-safe", "0",
         "-i", str(list_file),
-        "-c", "copy",
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-ar", "44100",
+        "-ac", "2",
         str(out_final_path)
     ]
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -605,7 +633,7 @@ def run_pipeline(config_path=None):
                 "scene": scene_num
             })
             clip_path = work_dir / f"vid_{i}.mp4"
-            create_sentence_clip(img_path, audio_path, clip_path, aspect_ratio=aspect_ratio)
+            create_sentence_clip(img_path, audio_path, clip_path, aspect_ratio=aspect_ratio, scene_index=i)
             clips.append(str(clip_path))
 
         # Step 6: Sequential Assembly (vid a + vid b = final video)

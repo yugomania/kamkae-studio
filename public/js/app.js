@@ -294,13 +294,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const sentences = parseSentences(data.script || '');
     metaBadgeScenes.textContent = `${sentences.length} Scenes`;
 
-    const videoSrc = (data.details && data.details.huggingface && data.details.huggingface.download_url)
-      ? data.details.huggingface.download_url
-      : `/outputs/${data.execution_id}/final_video.mp4`;
+    const localVideoUrl = `/outputs/${data.execution_id}/final_video.mp4`;
+    const hfVideoUrl = data.details?.huggingface?.download_url;
 
+    // Prefer local video URL for direct, fast, zero-CORS browser playback with full audio
     videoPlaceholder.style.display = 'none';
     videoPlayer.style.display = 'block';
-    videoPlayer.src = videoSrc;
+    videoPlayer.muted = false;
+    videoPlayer.volume = 1.0;
+    videoPlayer.src = localVideoUrl;
+
+    videoPlayer.onerror = () => {
+      if (hfVideoUrl && videoPlayer.src !== hfVideoUrl) {
+        console.log('Falling back to Hugging Face URL for playback');
+        videoPlayer.src = hfVideoUrl;
+        videoPlayer.load();
+      }
+    };
+
     videoPlayer.load();
 
     if (data.details && data.details.huggingface) {
