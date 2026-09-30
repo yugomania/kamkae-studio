@@ -335,25 +335,25 @@ def generate_voiceover(text, voice="af_heart", out_wav="voice.wav"):
     except Exception:
         pass
 
-    # High-quality fallback: edge-tts native Python API
+    # High-quality fallback: edge-tts native Python API with strict timeout
     try:
         import asyncio
         import edge_tts
         edge_voice = "en-US-ChristopherNeural" if "m" in voice else "en-US-JennyNeural"
         async def _synth():
             communicate = edge_tts.Communicate(text, edge_voice)
-            await communicate.save(out_wav)
+            await asyncio.wait_for(communicate.save(out_wav), timeout=12)
         asyncio.run(_synth())
         if os.path.exists(out_wav) and os.path.getsize(out_wav) > 0:
             return out_wav
     except Exception:
         pass
 
-    # Subprocess fallback: edge-tts CLI via python -m
+    # Subprocess fallback: edge-tts CLI via python -m with strict timeout
     try:
         edge_voice = "en-US-ChristopherNeural" if "m" in voice else "en-US-JennyNeural"
         cmd = [sys.executable, "-m", "edge_tts", "--voice", edge_voice, "--text", text, "--write-media", out_wav]
-        res = subprocess.run(cmd, capture_output=True, text=True)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=12)
         if res.returncode == 0 and os.path.exists(out_wav) and os.path.getsize(out_wav) > 0:
             return out_wav
     except Exception:
