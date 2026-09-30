@@ -153,8 +153,9 @@ def expand_prompt_kimi_k3(sentence, animation_style, max_retries=2):
         "max_tokens": 120
     }
 
+    api_key = os.getenv("NVIDIA_API_KEY") or NVIDIA_API_KEY
     headers = {
-        "Authorization": f"Bearer {NVIDIA_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
 
@@ -184,8 +185,9 @@ def generate_image_kie_ai(prompt, aspect_ratio="16:9", out_path="scene.png", max
     Sends image generation task to Kie.ai Z-Image model and polls for completion.
     """
     create_url = "https://api.kie.ai/api/v1/jobs/createTask"
+    api_key = os.getenv("KIE_API_KEY") or KIE_API_KEY
     headers = {
-        "Authorization": f"Bearer {KIE_API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
     payload = {
@@ -366,8 +368,10 @@ def push_to_huggingface_dataset(video_path, execution_id, title):
     uploads the final video, and returns direct preview and download URLs.
     """
     from huggingface_hub import HfApi
-    api = HfApi(token=HF_TOKEN)
-    repo_id = f"{HF_USERNAME}/{HF_DATASET_NAME}"
+    token = os.getenv("HF_TOKEN") or HF_TOKEN
+    username = os.getenv("HF_USERNAME") or HF_USERNAME
+    api = HfApi(token=token)
+    repo_id = f"{username}/{HF_DATASET_NAME}"
 
     # Ensure dataset repository exists
     try:

@@ -167,7 +167,12 @@ function launchKaggleKernel(executionId, workDir, jobConfig) {
 
   const kaggleHeader = `
 # AUTO-INJECTED CONFIGURATION FOR KAGGLE T4 CONTAINER
-import os, sys, subprocess
+import os, sys, subprocess, json
+
+# Standard JSON compatibility constants for Python
+null = None
+true = True
+false = False
 
 # Ensure essential dependencies in Kaggle environment
 for _pkg in ["huggingface_hub", "soundfile", "edge-tts"]:
@@ -176,8 +181,8 @@ for _pkg in ["huggingface_hub", "soundfile", "edge-tts"]:
     except ImportError:
         subprocess.run([sys.executable, "-m", "pip", "install", "-q", _pkg])
 
-# Inject Job Configuration
-EMBEDDED_CONFIG = ${JSON.stringify(jobConfig)};
+# Inject Job Configuration safely via json.loads
+EMBEDDED_CONFIG = json.loads(${JSON.stringify(JSON.stringify(jobConfig))})
 
 # Inject API Secrets into cloud runtime
 os.environ["HF_TOKEN"] = ${JSON.stringify(process.env.HF_TOKEN || '')};
