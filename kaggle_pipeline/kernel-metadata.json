@@ -1,0 +1,12 @@
+{
+  "id": "ugochukwuodagu/kamkae-video-generator",
+  "title": "Kamkae Video Generator",
+  "code_file": "worker.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "machine_shape": "NvidiaTeslaT4"
+}

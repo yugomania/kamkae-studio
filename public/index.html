@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kamkae Studio | Faceless AI Video Automation</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
+</head>
+<body>
+
+  <!-- Navigation Header -->
+  <header class="app-header">
+    <a href="#" class="brand">
+      <div class="brand-icon">✦</div>
+      <div>
+        <div class="brand-title">KAMKAE STUDIO</div>
+      </div>
+      <span class="brand-tag">T4 ACCELERATED</span>
+    </a>
+
+    <!-- Live Status Badges -->
+    <div class="header-badges">
+      <div class="status-badge" id="badge-gpu" title="Kaggle T4 GPU Accelerator">
+        <span class="status-dot active pulsing"></span>
+        <span>Kaggle T4 GPU</span>
+      </div>
+      <div class="status-badge" id="badge-kimi" title="NVIDIA NIM Kimi K3 LLM">
+        <span class="status-dot active"></span>
+        <span>Kimi K3 NIM</span>
+      </div>
+      <div class="status-badge" id="badge-kie" title="Kie.ai Z-Image Generator">
+        <span class="status-dot active"></span>
+        <span>Kie.ai Z-Image</span>
+      </div>
+      <div class="status-badge" id="badge-hf" title="Hugging Face Dataset Storage">
+        <span class="status-dot active"></span>
+        <span>HF Hub: yugomania</span>
+      </div>
+    </div>
+
+    <div class="header-user">
+      <button class="user-btn" id="btn-user-auth">
+        <span>👤</span>
+        <span id="user-display-name">Studio Creator</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Studio Workspace -->
+  <main class="app-container">
+
+    <!-- Left Panel: Creative Studio Input -->
+    <section class="studio-panel glass-panel">
+      
+      <!-- Video Title -->
+      <div class="form-group">
+        <label class="form-label" for="input-title">Project / Video Title</label>
+        <input 
+          type="text" 
+          id="input-title" 
+          class="input-text" 
+          placeholder="e.g., The Legend of Merlin" 
+          value="The Legend of Merlin"
+        />
+      </div>
+
+      <!-- Script Input -->
+      <div class="form-group">
+        <div class="section-header">
+          <label class="form-label" for="input-script">Script Text (Divided at Full Stops into Scenes)</label>
+          <span class="script-helpers">
+            <span id="sentence-count-badge">4 Scenes Detected</span>
+          </span>
+        </div>
+        <textarea 
+          id="input-script" 
+          class="input-text textarea-script" 
+          placeholder="Type or paste your script here. Each full stop or line break defines a scene."
+        >In the land of myth.
+In the time of magic.
+The destiny of a great kingdom rests on the shoulders of a young boy.
+His name: Merlin.</textarea>
+      </div>
+
+      <!-- Sentence Scene Preview -->
+      <div class="form-group">
+        <label class="form-label">Scene Segmentation Breakdown</label>
+        <div class="preview-sentences-box" id="sentence-preview-list">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+
+      <!-- Animation Style Selector -->
+      <div class="form-group">
+        <label class="form-label">Image Animation Visual Style</label>
+        <div class="style-grid" id="style-grid">
+          
+          <div class="style-card selected" data-style="Cinematic Dark Fantasy">
+            <span class="style-card-icon">🏰</span>
+            <span class="style-card-title">Dark Fantasy</span>
+          </div>
+
+          <div class="style-card" data-style="Studio Ghibli Anime">
+            <span class="style-card-icon">🍃</span>
+            <span class="style-card-title">Ghibli Anime</span>
+          </div>
+
+          <div class="style-card" data-style="Cyberpunk Neon 3D">
+            <span class="style-card-icon">🌆</span>
+            <span class="style-card-title">Cyberpunk</span>
+          </div>
+
+          <div class="style-card" data-style="Photorealistic Cinema 8K">
+            <span class="style-card-icon">🎥</span>
+            <span class="style-card-title">Hyper Cinema</span>
+          </div>
+
+          <div class="style-card" data-style="Pixar 3D Animation">
+            <span class="style-card-icon">🧸</span>
+            <span class="style-card-title">Pixar 3D</span>
+          </div>
+
+          <div class="style-card" data-style="Comic Book Noir">
+            <span class="style-card-icon">🦇</span>
+            <span class="style-card-title">Comic Noir</span>
+          </div>
+
+          <div class="style-card" data-style="Watercolor Dreamscape">
+            <span class="style-card-icon">🎨</span>
+            <span class="style-card-title">Watercolor</span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Voice & Aspect Ratio Options -->
+      <div class="options-row">
+        
+        <!-- Voiceover Model -->
+        <div class="form-group">
+          <label class="form-label" for="select-voice">Voiceover (Kokoro TTS)</label>
+          <select id="select-voice" class="select-custom">
+            <option value="af_heart" selected>Kokoro Heart (Warm Female)</option>
+            <option value="am_adam">Kokoro Adam (Narrative Male)</option>
+            <option value="bf_emma">Kokoro Emma (British Female)</option>
+            <option value="bm_george">Kokoro George (Epic British Male)</option>
+            <option value="af_bella">Kokoro Bella (Expressive Female)</option>
+          </select>
+        </div>
+
+        <!-- Aspect Ratio -->
+        <div class="form-group">
+          <label class="form-label">Video Format</label>
+          <div class="aspect-group" id="aspect-toggle">
+            <button type="button" class="aspect-btn selected" data-aspect="16:9">
+              <span>🖥️ 16:9 Cinema</span>
+            </button>
+            <button type="button" class="aspect-btn" data-aspect="9:16">
+              <span>📱 9:16 Shorts</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Execution Mode -->
+      <div class="form-group">
+        <label class="form-label">Execution Environment</label>
+        <select id="select-mode" class="select-custom">
+          <option value="kaggle" selected>🚀 Kaggle T4 GPU Accelerator (Cloud Kernel Push)</option>
+          <option value="direct">⚡ Accelerated Direct Pipeline Runner</option>
+        </select>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="actions-container">
+        <button type="button" class="btn-run" id="btn-run-automation">
+          <span>✨ Run Automation Pipeline</span>
+        </button>
+        <button type="button" class="btn-cancel" id="btn-cancel-execution">
+          <span>🛑 Instant Cancel</span>
+        </button>
+      </div>
+
+    </section>
+
+
+    <!-- Right Panel: Output & Live Monitoring -->
+    <section class="output-panel glass-panel">
+      
+      <!-- Tab Navigation -->
+      <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="tab-monitor">Live Pipeline Monitor</button>
+        <button class="tab-btn" data-tab="tab-preview">Video Preview Player</button>
+        <button class="tab-btn" data-tab="tab-library">Video Library</button>
+      </nav>
+
+      <!-- Tab 1: Live Monitor -->
+      <div class="tab-content active" id="tab-monitor">
+        
+        <!-- Progress Stepper -->
+        <div class="stepper-container">
+          <div class="stepper-header">
+            <span style="font-size: 0.85rem; font-weight: 700; color: #fff;" id="stepper-status-text">Ready for Execution</span>
+            <span style="font-size: 0.85rem; font-weight: 700; color: var(--primary-light);" id="stepper-percentage">0%</span>
+          </div>
+          
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progress-bar-fill"></div>
+          </div>
+
+          <div class="step-items">
+            <div class="step-item" id="step-init">
+              <span class="step-icon">1</span>
+              <span>GPU Init</span>
+            </div>
+            <div class="step-item" id="step-kimi">
+              <span class="step-icon">2</span>
+              <span>Kimi K3</span>
+            </div>
+            <div class="step-item" id="step-kie">
+              <span class="step-icon">3</span>
+              <span>Z-Image</span>
+            </div>
+            <div class="step-item" id="step-tts">
+              <span class="step-icon">4</span>
+              <span>Kokoro TTS</span>
+            </div>
+          </div>
+          <div class="step-items" style="margin-top: 0;">
+            <div class="step-item" id="step-motion">
+              <span class="step-icon">5</span>
+              <span>Motion Clip</span>
+            </div>
+            <div class="step-item" id="step-assembly">
+              <span class="step-icon">6</span>
+              <span>Assembly</span>
+            </div>
+            <div class="step-item" id="step-upload">
+              <span class="step-icon">7</span>
+              <span>HF Upload</span>
+            </div>
+            <div class="step-item" id="step-done">
+              <span class="step-icon">8</span>
+              <span>Ready</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Terminal Console -->
+        <div class="terminal-window">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+            </div>
+            <span>EXECUTION LOG CONSOLE</span>
+            <span id="log-clock">--:--:--</span>
+          </div>
+          <div class="terminal-body" id="terminal-logs">
+            <div class="log-line system">[System] Kamkae Studio Initialized.</div>
+            <div class="log-line system">[System] Ready to segment script and push execution to Kaggle T4 GPU.</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Tab 2: Video Preview Player -->
+      <div class="tab-content" id="tab-preview">
+        <div class="player-container">
+          
+          <div class="video-frame" id="video-frame-container">
+            <div class="video-placeholder" id="video-placeholder-empty">
+              <span style="font-size: 3rem;">🎬</span>
+              <span>No video generated yet. Run the pipeline to preview.</span>
+            </div>
+            <video id="final-video-player" controls style="display: none;"></video>
+          </div>
+
+          <div class="video-meta-box" id="video-meta-box">
+            <h3 class="meta-title" id="meta-video-title">The Legend of Merlin</h3>
+            <div class="meta-badges">
+              <span class="meta-badge" id="meta-badge-style">Cinematic Dark Fantasy</span>
+              <span class="meta-badge" id="meta-badge-res">1920x1080</span>
+              <span class="meta-badge" id="meta-badge-scenes">4 Scenes</span>
+              <span class="meta-badge" id="meta-badge-engine">Kaggle T4 GPU</span>
+            </div>
+
+            <div class="video-action-buttons">
+              <a href="#" target="_blank" class="btn-secondary primary" id="btn-link-hf">
+                <span>🤗 View on Hugging Face</span>
+              </a>
+              <a href="#" download="final_video.mp4" class="btn-secondary" id="btn-download-mp4">
+                <span>📥 Download MP4</span>
+              </a>
+              <button type="button" class="btn-secondary" id="btn-copy-link">
+                <span>📋 Copy Direct URL</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Tab 3: Video Library -->
+      <div class="tab-content" id="tab-library">
+        <div class="library-grid" id="library-grid">
+          <!-- Populated from past executions -->
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Auth Modal -->
+  <div class="modal-overlay" id="modal-auth">
+    <div class="modal-card">
+      <div class="section-header" style="margin-bottom: 1.25rem;">
+        <h3 style="font-size: 1.1rem; color: #fff;">Studio Sign In</h3>
+        <button id="modal-close" style="background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.25rem;">✕</button>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label" for="auth-email">Email Address</label>
+        <input type="email" id="auth-email" class="input-text" placeholder="user@domain.com" value="ugoodagu@gmail.com">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1.5rem;">
+        <label class="form-label" for="auth-password">Password</label>
+        <input type="password" id="auth-password" class="input-text" placeholder="••••••••" value="password123">
+      </div>
+
+      <div style="display: flex; gap: 0.75rem;">
+        <button type="button" class="btn-run" style="flex: 1; padding: 0.75rem;" id="btn-login-submit">
+          Sign In
+        </button>
+        <button type="button" class="btn-secondary" style="flex: 1;" id="btn-signup-submit">
+          Sign Up
+        </button>
+      </div>
+
+      <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 1rem; text-align: center;">
+        Multi-user Firebase Auth support ready. Connects automatically with Firebase credentials.
+      </p>
+    </div>
+  </div>
+
+  <script src="js/firebase-config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
